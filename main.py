@@ -7,6 +7,8 @@ import os
 from dotenv import load_dotenv
 
 import __main__
+from schemas import UserIntent
+from ai_service import analyze_query_with_llm
 
 load_dotenv()
 
@@ -86,44 +88,11 @@ async def health_check():
         "message": "API is running securely."
     }
 
-@app.get("/api/debug-models")
-async def debug_models():
-    """Tymczasowy endpoint do testowania, czy modele ML poprawnie liczą dane."""
+@app.post("/api/test-ner", response_model=UserIntent)
+async def test_llm_parsing(query: str):
+    """Endpoint do weryfikacji strukturalnej ekstrakcji bytów (NER) przez Gemini."""
     try:
-        # 1. Test Bazy Danych
-        db = ml_models['database']
-        first_perfume = db.iloc[0] # Pobieramy pierwszy wiersz (pierwsze perfumy w bazie)
-        perfume_name = first_perfume.get('Name', 'Brak nazwy')
-        
-        # 2. Test wektoryzatora TF-IDF
-        tfidf = ml_models['tfidf']
-        test_text = "eleganckie spotkanie biznesowe"
-        # Próbujemy wektoryzować tekst
-        tfidf_vector = tfidf.transform([test_text])
-        recognized_words = tfidf_vector.nnz # Ilość słów, które model rozpoznał ze słownika
-        
-        # 3. Test klasyfikatora SVM
-        svm = ml_models['svm']
-        # Pobieramy 384-wymiarowy wektor pierwszych perfum
-        sample_embedding = first_perfume['Embeddings']
-        # Każemy SVM przewidzieć, czy to zapach męski, damski czy unisex
-        prediction = svm.predict([sample_embedding])[0]
-        
-        return {
-            "status": "SUKCES - Modele działają i liczą poprawnie!",
-            "test_bazy": {
-                "pierwsze_perfumy": perfume_name,
-                "wymiar_bazy": f"{db.shape[0]} wierszy, {db.shape[1]} kolumn"
-            },
-            "test_tfidf": {
-                "tekst_wejsciowy": test_text,
-                "rozpoznane_slowa": recognized_words
-            },
-            "test_svm": {
-                "testowane_perfumy": perfume_name,
-                "predykcja_plci_przez_svm": str(prediction)
-            }
-        }
+        response = analyze_query_with_llm(query)
+        return response
     except Exception as e:
-        # Jeśli coś wybuchnie, dostaniemy dokładny powód
-        return {"status": "BŁĄD", "szczegoly": str(e)}
+        raise HTTPException(status_code=500, detail=f"Błąd przetwarzania LLM: {str(e)}")
