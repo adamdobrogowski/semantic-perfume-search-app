@@ -7,8 +7,9 @@ import os
 from dotenv import load_dotenv
 
 import __main__
-from schemas import UserIntent
+from schemas import UserIntent, PerfumeResult
 from ai_service import analyze_query_with_llm
+from search_service import search_perfumes
 
 load_dotenv()
 
@@ -96,3 +97,20 @@ async def test_llm_parsing(query: str):
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd przetwarzania LLM: {str(e)}")
+    
+@app.post('/api/search', response_model=list[PerfumeResult])
+async def search_endpoint(query: str):
+    """
+    Główny produkcyjny endpoint wyszukiwarki. 
+    Łączy rozumienie języka (Gemini) z przeszukiwaniem wektorowej bazy (Pandas).
+    """
+    if not ml_models:
+        raise HTTPException(status_code=503, detail="Modele AI ładują się. Spróbuj za chwilę.")
+
+    try:
+        intent = analyze_query_with_llm(query)
+        results = search_perfumes(intent, ml_models)
+        
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd wyszukiwarki: {str(e)}")
