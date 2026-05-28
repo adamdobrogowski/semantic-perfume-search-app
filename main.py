@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import pandas as pd
+from sentence_transformers import SentenceTransformer
 import joblib
 import os 
 from dotenv import load_dotenv
@@ -50,18 +51,21 @@ async def lifespan(app: FastAPI):
         ml_models['svm'] = joblib.load(svm_path)
         print("Klasyfikator SVM wczytany.")
         
-        print("Serwer gotowy do przyjmowania zapytań!")
+        # 5. Wielojęzyczny Model NLP (Sentence-Transformers)
+        ml_models['embedder'] = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+        print("Model wielojęzyczny załadowany pomyślnie.")
+        
+        print("Serwer gotowy do przyjmowania zapytań.")
         
         # Oddanie kontroli do FastAPI
         yield 
-    
-    except FileNotFoundError as e:
-        print(f"BŁĄD: Nie znaleziono pliku modelu! Upewnij się, że folder 'modele' istnieje.")
-        print(f"Szczegóły: {e}")
-        raise e
+
+    except Exception as e:
+        print(f"Wystąpił błąd podczas ładowania modeli ML: {e}")
+        raise e 
     finally:
+        print("Zatrzymywanie serwera...")
         ml_models.clear()
-        print("Serwer zamknięty, pamięć wyczyszczona.")
 
 app = FastAPI(
     title="Perfume Semantic Search API",
@@ -78,7 +82,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ENDPOINTY BAZOWE
 @app.get("/health")
 async def health_check():
     """Endpoint diagnostyczny. Zwraca informację, czy serwer żyje i czy modele są w RAM."""

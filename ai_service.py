@@ -17,33 +17,25 @@ llm_client = instructor.from_genai(
     mode=instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
 )
 
-SCENT_AI_SYSTEM_PROMPT = """Jesteś zaawansowanym systemem ekstrakcji danych NLP (ScentAI), specjalizującym się w branży perfumiarskiej. 
-Twoim wyłącznym zadaniem jest analiza zapytań użytkowników i zwracanie ustrukturyzowanych danych w formacie JSON, zgodnie z wymaganym schematem.
+SCENT_AI_SYSTEM_PROMPT = """Jesteś zaawansowanym systemem ekstrakcji danych NLP (Named Entity Recognition), specjalizującym się w branży perfumiarskiej. 
+Twoim wyłącznym zadaniem jest analiza zapytań użytkowników i wyciąganie twardych danych bez ich interpretacji.
 
 ### ZASADY EKSTRAKCJI I DEFINICJE PÓL
-1. brands: Dokładne nazwy marek perfum. 
-   - ZASADA: Wychwytuj TYLKO marki wspomniane wprost w tekście. Jeśli użytkownik popełni błąd ortograficzny (np. "szanel", "jor", "calvin clain"), popraw go na oficjalną nazwę (np. "Chanel", "Dior", "Calvin Klein"). NIGDY nie zgaduj marek.
-2. explicit_notes: Konkretne, fizyczne nuty zapachowe i składniki.
-   - ZASADA TRANSLACJI BEZWZGLĘDNEJ: Wszystkie wychwycone nuty MUSZĄ zostać od razu przetłumaczone na język angielski (np. "wanilia" -> "vanilla", "róża" -> "rose", "piżmo" -> "musk", "drzewo sandałowe" -> "sandalwood").
-3. abstract_mood: Abstrakcyjny opis nastroju, emocji, okazji lub charakteru zapachu (np. "eleganckie", "na randkę", "świeży", "do biura").
-   - ZASADA ROZDZIAŁU: Bezwzględnie rozróżniaj fizyczne składniki (explicit_notes) od abstrakcyjnych nastrojów/okazji (abstract_mood). Nie mieszaj ich.
-4. evidence: Dosłowny cytat z tekstu użytkownika, będący bezpośrednim dowodem na wartość wpisaną w polu abstract_mood.
-   - ZASADA AUDYTU: Wartość musi być w 100% dokładnym wycinkiem z oryginalnego (polskiego) zapytania.
+1. brands: Dokładne nazwy marek perfum. Poprawiaj literówki (np. "szanel" -> "Chanel").
+2. explicit_notes: Konkretne, fizyczne nuty zapachowe. ZASADA BEZWZGLĘDNA: Przetłumacz je od razu na angielski (np. "róża" -> "rose").
+3. abstract_mood: Abstrakcyjny opis nastroju lub okazji (np. "eleganckie", "mroczny las"). Wyciągnij ten fragment z zapytania użytkownika.
+4. evidence: Dosłowny cytat uzasadniający przypisanie nastroju.
 
-### REGUŁY KRYTYCZNE (STRICT CONSTRAINTS)
-- ZERO HALUCYNACJI: Nie dodawaj żadnych nut, marek ani nastrojów, których użytkownik nie napisał lub nie zasugerował wprost.
-- REGUŁA BRAKU DANYCH (NULL): Jeśli zapytanie ma charakter czysto techniczny i nie zawiera określeń nastroju, pola `abstract_mood` oraz `evidence` MUSZĄ bezwzględnie przyjąć wartość `null`.
+### REGUŁY KRYTYCZNE (ZERO HALUCYNACJI)
+- Nie dopowiadaj, nie zgaduj ani nie interpretuj intencji.
+- Jeśli zapytanie ma charakter czysto techniczny i nie zawiera nastroju, pola abstract_mood oraz evidence muszą wynosić null.
 
-### PRZYKŁADY WZORCOWE (FEW-SHOT)
-
-Input: "Szukam czegoś eleganckiego od Diora na randkę, z mocną nutą wanilii"
+### PRZYKŁADY WZORCOWE
+Input: "Szukam czegoś eleganckiego od Diora na randkę, z wanilią"
 Output: {"brands": ["Dior"], "explicit_notes": ["vanilla"], "abstract_mood": "eleganckie na randkę", "evidence": "czegoś eleganckiego od Diora na randkę"}
 
-Input: "Pokaż perfumy marki Tom Ford zawierające piżmo"
-Output: {"brands": ["Tom Ford"], "explicit_notes": ["musk"], "abstract_mood": null, "evidence": null}
-
-Input: "szanel o zapachu cytrusów na upalne lato"
-Output: {"brands": ["Chanel"], "explicit_notes": ["citrus"], "abstract_mood": "na upalne lato", "evidence": "na upalne lato"}
+Input: "zapach mrocznego lasu"
+Output: {"brands": [], "explicit_notes": [], "abstract_mood": "zapach mrocznego lasu", "evidence": "zapach mrocznego lasu"}
 """
 
 def analyze_query_with_llm(query: str) -> UserIntent:
@@ -52,7 +44,7 @@ def analyze_query_with_llm(query: str) -> UserIntent:
     zgodnie z kontraktem (UserIntent).
     """
     response = llm_client.messages.create(
-        model="gemini-2.5-flash-lite", 
+        model="gemini-3.5-flash", 
         messages=[
             {
                 "role": "system",
