@@ -7,6 +7,7 @@ import joblib
 import os 
 import numpy as np
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 import __main__
 from schemas import UserIntent, PerfumeResult
@@ -22,6 +23,9 @@ def accord_tokenizer(text):
     return []
 
 __main__.accord_tokenizer = accord_tokenizer
+
+class SearchRequest(BaseModel):
+    query: str
 
 ml_models = {}
 
@@ -104,12 +108,14 @@ async def test_llm_parsing(query: str):
         raise HTTPException(status_code=500, detail=f"Błąd przetwarzania LLM: {str(e)}")
     
 @app.post('/api/search')
-async def search_endpoint(query: str):
+async def search_endpoint(request: SearchRequest):
     """
     Główny produkcyjny endpoint wyszukiwarki. 
     Łączy rozumienie języka (Gemini - NER) z przeszukiwaniem wektorowej bazy (SBERT),
     dodając klasyfikację intencji (SVM) oraz profilowanie zapachowe (K-Means).
     """
+    query = request.query  # <--- Wyciągamy tekst z JSONa
+
     if not ml_models:
         raise HTTPException(status_code=503, detail="Modele AI ładują się. Spróbuj za chwilę.")
 
@@ -151,6 +157,61 @@ async def search_endpoint(query: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd wyszukiwarki: {str(e)}")
     
+@app.get("/api/clusters")
+async def get_clusters(limit: int = 300):
+    """
+    Zwraca próbkowną listę punktów do narysowania wykresu PCA (Scatter Plot).
+    Wersja kuloodporna: odporna na zmiany wielkości liter w nazwach kolumn.
+    """
+    try:
+        db = ml_models['database']
+        
+        # 1. Sprawdzenie, czy wektory PCA istnieją
+        if 'PCA_X' not in db.columns or 'PCA_Y' not in db.columns:
+            return {"status": "error", "detail": "Brak wyliczonych współrzędnych PCA w bazie."}
+        
+        # 2. Elastyczne odnajdywanie nazw kolumn (ignoruje wielkość liter)
+        brand_col = next((col for col in db.columns if col.lower() == 'brand'), None)
+        name_col = next((col for col in db.columns if col.lower() == 'name'), None)
+        cluster_col = next((col for col in db.columns if col.lower() in ['cluster_name', 'cluster']), 'Cluster_Name')
+        
+        # 3. Filtrowanie z zabezpieczeniem przed pustym zbiorem
+        if brand_col:
+            top_brands = ['Tom Ford', 'Dior', 'Chanel', 'Jo Malone London', 'Yves Saint Laurent', 'Guerlain', 'Mugler', 'Creed', 'Versace', 'Giorgio Armani']
+            # Filtrujemy, ale jeśli nie znajdzie żadnej z tych marek, to po prostu bierze wszystko
+            filtered_db = db[db[brand_col].isin(top_brands)].dropna(subset=['PCA_X', 'PCA_Y'])
+            if filtered_db.empty:
+                filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y'])
+        else:
+            filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y'])
+            
+        # 4. Próbkowanie do określonego limitu
+        sample = filtered_db.sample(n=min(limit, len(filtered_db)), random_state=42)
+        
+        # 5. Bezpieczne mapowanie do JSON-a
+        points = []
+        for _, row in sample.iterrows():
+            perfume_name = str(row[name_col]) if name_col else "Nieznana nazwa"
+            perfume_brand = str(row[brand_col]) if brand_col else "Nieznana marka"
+            cluster_name = str(row[cluster_col]) if cluster_col in db.columns else "Główna Galaktyka"
+            
+            points.append({
+                "id": str(row.get('Perfume_ID', np.random.randint(10000, 99999))),
+                "name": perfume_name,
+                "brand": perfume_brand,
+                "cluster": cluster_name,
+                "x": float(row['PCA_X']),
+                "y": float(row['PCA_Y'])
+            })
+            
+        return {"status": "success", "data": points}
+        
+    except Exception as e:
+        import traceback
+        print("BŁĄD W ENDPOINCIE KLASTRÓW:")
+        print(traceback.format_exc())
+        return {"status": "error", "detail": f"Błąd wczytywania bazy: {str(e)}"}
+
 @app.get("/api/evaluate")
 async def evaluate_system_endpoint():
     """
@@ -175,46 +236,57 @@ async def get_metrics():
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
-@app.get("/api/clusters")
 async def get_clusters(limit: int = 300):
     """
     Zwraca próbkowną listę punktów do narysowania wykresu PCA (Scatter Plot).
-    Ogranicza dane do najbardziej znanych marek, aby wykres był czytelny dla użytkownika.
+    Wersja kuloodporna: odporna na zmiany wielkości liter w nazwach kolumn.
     """
     try:
         db = ml_models['database']
         
-        # Wybrane popularne domeny zapachowe do pokazania na wykresie
-        top_brands = [
-            'Tom Ford', 'Dior', 'Chanel', 'Jo Malone London', 
-            'Yves Saint Laurent', 'Guerlain', 'Mugler', 'Creed', 'Versace', 'Giorgio Armani'
-        ]
-        
-        # Sprawdzamy czy nasza baza ma na pewno wyliczone PCA
+        # 1. Sprawdzenie, czy wektory PCA istnieją
         if 'PCA_X' not in db.columns or 'PCA_Y' not in db.columns:
             return {"status": "error", "detail": "Brak wyliczonych współrzędnych PCA w bazie."}
-            
-        # Filtrujemy tylko wybrane marki i usuwamy ewentualne braki danych
-        filtered_db = db[db['Brand'].isin(top_brands)].dropna(subset=['PCA_X', 'PCA_Y', 'Cluster_Name'])
         
-        # Zabezpieczenie: Jeśli marek nie ma w bazie, losujemy z całości
-        if filtered_db.empty:
-            filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y', 'Cluster_Name'])
+        # 2. Elastyczne odnajdywanie nazw kolumn (ignoruje wielkość liter)
+        brand_col = next((col for col in db.columns if col.lower() == 'brand'), None)
+        name_col = next((col for col in db.columns if col.lower() == 'name'), None)
+        cluster_col = next((col for col in db.columns if col.lower() in ['cluster_name', 'cluster']), 'Cluster_Name')
+        
+        # 3. Filtrowanie z zabezpieczeniem przed pustym zbiorem
+        if brand_col:
+            top_brands = ['Tom Ford', 'Dior', 'Chanel', 'Jo Malone London', 'Yves Saint Laurent', 'Guerlain', 'Mugler', 'Creed', 'Versace', 'Giorgio Armani']
+            # Filtrujemy, ale jeśli nie znajdzie żadnej z tych marek, to po prostu bierze wszystko
+            filtered_db = db[db[brand_col].isin(top_brands)].dropna(subset=['PCA_X', 'PCA_Y'])
+            if filtered_db.empty:
+                filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y'])
+        else:
+            filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y'])
             
-        # Próbkowanie do określonego limitu (np. 300 punktów)
+        # 4. Próbkowanie do określonego limitu
         sample = filtered_db.sample(n=min(limit, len(filtered_db)), random_state=42)
         
+        # 5. Bezpieczne mapowanie do JSON-a
         points = []
         for _, row in sample.iterrows():
+            perfume_name = str(row[name_col]) if name_col else "Nieznana nazwa"
+            perfume_brand = str(row[brand_col]) if brand_col else "Nieznana marka"
+            cluster_name = str(row[cluster_col]) if cluster_col in db.columns else "Główna Galaktyka"
+            
             points.append({
                 "id": str(row.get('Perfume_ID', np.random.randint(10000, 99999))),
-                "name": str(row['Name']),
-                "brand": str(row['Brand']),
-                "cluster": str(row['Cluster_Name']),
+                "name": perfume_name,
+                "brand": perfume_brand,
+                "cluster": cluster_name,
                 "x": float(row['PCA_X']),
                 "y": float(row['PCA_Y'])
             })
             
         return {"status": "success", "data": points}
+        
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        # Zrzut błędu do terminala serwera, aby nic się przed nami nie ukryło
+        import traceback
+        print("BŁĄD W ENDPOINCIE KLASTRÓW:")
+        print(traceback.format_exc())
+        return {"status": "error", "detail": f"Błąd wczytywania bazy: {str(e)}"}
