@@ -44,7 +44,7 @@ def analyze_query_with_llm(query: str) -> UserIntent:
     zgodnie z kontraktem (UserIntent).
     """
     response = llm_client.messages.create(
-        model="gemini-3.5-flash", 
+        model="gemini-2.5-flash-lite", 
         messages=[
             {
                 "role": "system",

@@ -5,12 +5,14 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 import joblib
 import os 
+import numpy as np
 from dotenv import load_dotenv
 
 import __main__
 from schemas import UserIntent, PerfumeResult
 from ai_service import analyze_query_with_llm
 from search_service import search_perfumes
+from evaluate_search import run_evaluation
 
 load_dotenv()
 
@@ -117,3 +119,71 @@ async def search_endpoint(query: str):
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd wyszukiwarki: {str(e)}")
+    
+@app.get("/api/evaluate")
+async def evaluate_system_endpoint():
+    """
+    Endpoint wykonujący na żywo testy ewaluacyjne (Precision@k) i zwracający
+    porównanie modelu Baseline z hybrydowym modelem ScentAI.
+    """
+    try:
+        report = run_evaluation(ml_models)
+        return {"status": "success", "data": report}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+    
+@app.get("/api/metrics")
+async def get_metrics():
+    """
+    Zwraca wyliczone statystyki ewaluacyjne (NLP & EDI) dla panelu deweloperskiego.
+    Wykorzystuje zmodyfikowaną metrykę Business Accuracy.
+    """
+    try:
+        report = run_evaluation(ml_models)
+        return {"status": "success", "data": report}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+@app.get("/api/clusters")
+async def get_clusters(limit: int = 300):
+    """
+    Zwraca próbkowną listę punktów do narysowania wykresu PCA (Scatter Plot).
+    Ogranicza dane do najbardziej znanych marek, aby wykres był czytelny dla użytkownika.
+    """
+    try:
+        db = ml_models['database']
+        
+        # Wybrane popularne domeny zapachowe do pokazania na wykresie
+        top_brands = [
+            'Tom Ford', 'Dior', 'Chanel', 'Jo Malone London', 
+            'Yves Saint Laurent', 'Guerlain', 'Mugler', 'Creed', 'Versace', 'Giorgio Armani'
+        ]
+        
+        # Sprawdzamy czy nasza baza ma na pewno wyliczone PCA
+        if 'PCA_X' not in db.columns or 'PCA_Y' not in db.columns:
+            return {"status": "error", "detail": "Brak wyliczonych współrzędnych PCA w bazie."}
+            
+        # Filtrujemy tylko wybrane marki i usuwamy ewentualne braki danych
+        filtered_db = db[db['Brand'].isin(top_brands)].dropna(subset=['PCA_X', 'PCA_Y', 'Cluster_Name'])
+        
+        # Zabezpieczenie: Jeśli marek nie ma w bazie, losujemy z całości
+        if filtered_db.empty:
+            filtered_db = db.dropna(subset=['PCA_X', 'PCA_Y', 'Cluster_Name'])
+            
+        # Próbkowanie do określonego limitu (np. 300 punktów)
+        sample = filtered_db.sample(n=min(limit, len(filtered_db)), random_state=42)
+        
+        points = []
+        for _, row in sample.iterrows():
+            points.append({
+                "id": str(row.get('Perfume_ID', np.random.randint(10000, 99999))),
+                "name": str(row['Name']),
+                "brand": str(row['Brand']),
+                "cluster": str(row['Cluster_Name']),
+                "x": float(row['PCA_X']),
+                "y": float(row['PCA_Y'])
+            })
+            
+        return {"status": "success", "data": points}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}

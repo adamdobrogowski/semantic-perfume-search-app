@@ -6,5 +6,6 @@ __pycache__/
 *.pyc
 
 .env
+inspect_models.py
 
 modele/
