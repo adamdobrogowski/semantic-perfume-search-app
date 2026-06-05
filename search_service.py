@@ -7,22 +7,40 @@ def search_perfumes(intent: UserIntent, ml_models: dict) -> list[PerfumeResult]:
     db = ml_models['database']
     filtered_db = db.copy()
 
+    filtered_db = filtered_db.dropna(subset=['Clean_Accords'])
+    filtered_db = filtered_db[
+        (filtered_db['Clean_Accords'].astype(str).str.strip() != '') &
+        (filtered_db['Clean_Accords'].astype(str).str.lower() != 'nan')
+    ]
+    # 1. Filtrowanie po Marce
     if intent.brands:
         brands_lower = [b.lower() for b in intent.brands]
         filtered_db = filtered_db[filtered_db['Brand'].str.lower().isin(brands_lower)]
     
+    # 2. Filtrowanie po jawnych nutach
     if intent.explicit_notes:
+        masks = []
         for note in intent.explicit_notes:
             note_lower = note.lower()
             mask = (
                 filtered_db['Description'].str.lower().str.contains(note_lower, na=False) |
                 filtered_db['Clean_Accords'].str.lower().str.contains(note_lower, na=False)
             )
-            filtered_db = filtered_db[mask]
+            masks.append(mask)
+            
+        if masks:
+            combined_mask = pd.concat(masks, axis=1).any(axis=1)
+            filtered_db = filtered_db[combined_mask]
+            
+    # 3. Filtrowanie po jawnej płci (Wyciągniętej przez LLM)
+    if intent.explicit_gender:
+        filtered_db = filtered_db[filtered_db['Gender'] == intent.explicit_gender]
         
+    # Jeśli filtry zabiły wszystkie wyniki, zwracamy od razu pustą listę
     if filtered_db.empty:
         return []
 
+    # 4. Wyszukiwanie Semantyczne (SBERT + TF-IDF)
     if intent.abstract_mood:
         embedder = ml_models['embedder']
         tfidf = ml_models['tfidf']
@@ -71,7 +89,7 @@ def search_perfumes(intent: UserIntent, ml_models: dict) -> list[PerfumeResult]:
             filtered_db = filtered_db.sort_values(by='match_score', ascending=False)
             
         except Exception as e:
-            print(f"⚠️ Błąd silnika hybrydowego: {e}")
+            print(f"Błąd silnika hybrydowego: {e}")
             filtered_db['match_score'] = 1.0 
     else:
         if intent.explicit_notes:

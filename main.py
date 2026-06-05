@@ -103,20 +103,51 @@ async def test_llm_parsing(query: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd przetwarzania LLM: {str(e)}")
     
-@app.post('/api/search', response_model=list[PerfumeResult])
+@app.post('/api/search')
 async def search_endpoint(query: str):
     """
     Główny produkcyjny endpoint wyszukiwarki. 
-    Łączy rozumienie języka (Gemini) z przeszukiwaniem wektorowej bazy (Pandas).
+    Łączy rozumienie języka (Gemini - NER) z przeszukiwaniem wektorowej bazy (SBERT),
+    dodając klasyfikację intencji (SVM) oraz profilowanie zapachowe (K-Means).
     """
     if not ml_models:
         raise HTTPException(status_code=503, detail="Modele AI ładują się. Spróbuj za chwilę.")
 
     try:
+        # 1. Kwalifikator Zapytań (NER) z użyciem Gemini
         intent = analyze_query_with_llm(query)
+        
+        # 2. Wyszukiwanie wektorowe SBERT + TF-IDF (tutaj baza jest już obcięta o jawną płeć)
         results = search_perfumes(intent, ml_models)
         
-        return results
+        # 3. Klasyfikacja intencji (Smart Filters dla interfejsu React)
+        predicted_gender = intent.explicit_gender 
+        
+        # Jeśli LLM nic nie wyciągnął, a mamy abstrakcyjny opis, używamy SVM
+        if not predicted_gender and intent.abstract_mood:
+            query_vector = ml_models['embedder'].encode([intent.abstract_mood])
+            predicted_gender = ml_models['svm'].predict(query_vector)[0]
+
+        if not predicted_gender:
+            predicted_gender = "for women and men"
+
+        # 4. Przyporządkowanie Profilu (K-Means)
+        assigned_cluster = "Nieznany Profil"
+        if results:
+            db = ml_models['database']
+            top_perfume_name = results[0].name
+            cluster_info = db[db['Name'] == top_perfume_name]['Cluster_Name'].values
+            if len(cluster_info) > 0:
+                assigned_cluster = str(cluster_info[0])
+
+        return {
+            "metadata": {
+                "predicted_gender": str(predicted_gender),
+                "assigned_cluster": assigned_cluster
+            },
+            "results": results
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Wewnętrzny błąd wyszukiwarki: {str(e)}")
     

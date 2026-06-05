@@ -17,6 +17,10 @@ class UserIntent(BaseModel):
         default=None,
         description="Cytat z zapytania, który uzasadnia przypisanie pola abstract_mood."
     )
+    explicit_gender: str | None = Field(
+        default=None,
+        description="Jawnie wskazana płeć docelowa. Dozwolone wartości TYLKO: 'for men', 'for women', 'for women and men'. Zwróć null (None), jeśli użytkownik nie określił płci wprost."
+    )
 
 class PerfumeResult(BaseModel):
     name: str
