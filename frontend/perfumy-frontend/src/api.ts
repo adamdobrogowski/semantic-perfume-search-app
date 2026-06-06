@@ -33,16 +33,16 @@ export const fetchClusters = async (limit: number = 300) => {
 /**
  * 3. Wyszukiwanie Perfum (Dla zakładki SearchPage)
  * Endpoint: POST /api/search
- * Uwaga: FastAPI oczekuje 'query' jako parametru URL, dlatego używamy encodeURIComponent
  */
 export const searchPerfumes = async (query: string) => {
     try {
-        const response = await fetch(`${BASE_URL}/search?query=${encodeURIComponent(query)}`, {
+        const response = await fetch(`${BASE_URL}/search`, {
             method: 'POST',
             headers: { 
                 'Accept': 'application/json',
                 'Content-Type': 'application/json' 
-            }
+            },
+            body: JSON.stringify({ query: query })
         });
         
         if (!response.ok) throw new Error(`Błąd HTTP: ${response.status}`);

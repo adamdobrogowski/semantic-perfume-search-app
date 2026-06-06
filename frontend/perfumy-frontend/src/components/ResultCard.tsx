@@ -3,17 +3,15 @@ import { Sparkles } from 'lucide-react';
 interface PerfumeProps {
   name: string;
   brand: string;
-  accords: any; 
-  similarity: number;
+  accords: string; 
+  match_score: number; 
 }
 
-export default function ResultCard({ name, brand, accords, similarity }: PerfumeProps) {
+export default function ResultCard({ name, brand, accords, match_score }: PerfumeProps) {
 
-  const safeAccords = Array.isArray(accords) 
-    ? accords 
-    : (typeof accords === 'string' ? accords.split(',').map(a => a.trim()) : []);
+  const safeAccords = accords ? accords.split(',').map(a => a.trim()) : [];
 
-  const displaySimilarity = similarity <= 1 ? Math.round(similarity * 100) : Math.round(similarity);
+  const displayScore = Math.round(match_score);
 
   return (
     <div className="bg-brand-surface rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col h-full">
@@ -24,7 +22,7 @@ export default function ResultCard({ name, brand, accords, similarity }: Perfume
         </div>
         <div className="flex items-center bg-brand-bg px-3 py-1 rounded-full border border-gray-200">
           <Sparkles className="w-4 h-4 text-brand-primary mr-2" />
-          <span className="text-sm font-mono font-bold text-brand-text">{displaySimilarity}%</span>
+          <span className="text-sm font-mono font-bold text-brand-text">{displayScore}%</span>
         </div>
       </div>
       

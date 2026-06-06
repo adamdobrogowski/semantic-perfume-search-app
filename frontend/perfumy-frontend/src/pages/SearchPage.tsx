@@ -1,19 +1,24 @@
 import { useState } from 'react';
 import { Search, SlidersHorizontal, Loader2, AlertCircle } from 'lucide-react';
 import ResultCard from '../components/ResultCard';
-import axios from 'axios'; 
+import { searchPerfumes } from '../api';
 
 interface PerfumeResult {
-  id: string | number;
   name: string;
   brand: string;
-  accords: string[];
-  similarity: number;
+  accords: string;
+  match_score: number;
+}
+
+interface Metadata {
+  predicted_gender: string;
+  assigned_cluster: string;
 }
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PerfumeResult[]>([]);
+  const [metadata, setMetadata] = useState<Metadata | null>(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,14 +29,16 @@ export default function SearchPage() {
     setIsLoading(true);
     setError(null);
     setResults([]); 
+    setMetadata(null);
 
     try {
-      const response = await axios.post('http://localhost:8000/api/search', { 
-        query: query 
-      });
+      // Korzystamy z nowej metody komunikacji, którą stworzyłeś
+      const response = await searchPerfumes(query);
       
-      const data = response.data.results || response.data;
-      setResults(data);
+      // Zapisujemy zarówno wyniki jak i metadane z AI!
+      setResults(response.results);
+      setMetadata(response.metadata);
+      
     } catch (err) {
       setError("Nie udało się połączyć z modelem ScentAI");
       console.error(err);
@@ -79,28 +86,56 @@ export default function SearchPage() {
           <div className="bg-brand-surface rounded-xl p-6 border border-gray-100 shadow-sm sticky top-24">
             <div className="flex items-center mb-2">
               <SlidersHorizontal className="w-5 h-5 text-brand-primary mr-2" />
-              <h2 className="font-bold text-brand-text">Smart Filters</h2>
+              <h2 className="font-bold text-brand-text">Analiza AI</h2>
             </div>
             <p className="text-xs text-brand-muted mb-6">
-              Zaznaczane automatycznie przez model AI na podstawie Twojego opisu.
+              Wnioski wygenerowane automatycznie na podstawie Twojego zapytania.
             </p>
 
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest border-b border-gray-100 pb-2">
-                Rozpoznana Płeć
-              </h3>
-              <div className="space-y-3">
-                {['Damskie', 'Męskie', 'Unisex'].map((gender) => (
-                  <label key={gender} className="flex items-center space-x-3 cursor-not-allowed opacity-60">
-                    <input
-                      type="checkbox"
-                      disabled
-                      className="form-checkbox h-4 w-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary disabled:bg-gray-100"
-                    />
-                    <span className="text-sm font-medium text-brand-text">{gender}</span>
-                  </label>
-                ))}
+            <div className="space-y-6">
+              {/* Sekcja 1: Wykryta Płeć */}
+              <div>
+                <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest border-b border-gray-100 pb-2 mb-3">
+                  Wykryta Płeć
+                </h3>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { label: 'Damskie', id: 'for women' },
+                    { label: 'Unisex', id: 'for women and men' },
+                    { label: 'Męskie', id: 'for men' }
+                  ].map((gender) => {
+                    // Sprawdzamy czy AI przewidziało tę konkretną płeć
+                    const isActive = metadata?.predicted_gender === gender.id;
+                    
+                    return (
+                      <div 
+                        key={gender.id} 
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                          isActive 
+                            ? 'bg-brand-primary/10 border-brand-primary text-brand-primary' 
+                            : 'bg-gray-50 border-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {gender.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Sekcja 2: Wykryty Profil (K-Means) */}
+              {metadata?.assigned_cluster && (
+                <div>
+                  <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest border-b border-gray-100 pb-2 mb-3 mt-4">
+                    Profil Zapachowy
+                  </h3>
+                  <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg">
+                     <span className="text-sm font-bold text-brand-text">
+                       {metadata.assigned_cluster}
+                     </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -125,13 +160,13 @@ export default function SearchPage() {
 
           {!isLoading && !error && results.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {results.map((perfume: any, index: number) => (
+              {results.map((perfume, index) => (
                 <ResultCard 
-                  key={perfume.id || perfume.Perfume_ID || index}
-                  name={perfume.name || perfume.Name || 'Nieznana nazwa'} 
-                  brand={perfume.brand || perfume.Brand || 'Nieznana marka'} 
-                  accords={perfume.accords || perfume.Clean_Accords || perfume.Main_Accords || []} 
-                  similarity={perfume.similarity || perfume.Similarity || perfume.score || 0} 
+                  key={index}
+                  name={perfume.name} 
+                  brand={perfume.brand} 
+                  accords={perfume.accords} 
+                  match_score={perfume.match_score} 
                 />
               ))}
             </div>
