@@ -321,22 +321,34 @@ export default function DevPanel() {
           </ResponsiveContainer>
         </div>
 
-        <p className="text-sm text-brand-muted text-center italic">
-          Porównanie precyzji i czułości (Recall) wyszukiwania na podstawie
-          zestawu testowego zapytań abstrakcyjnych.
-        </p>
-      </section>
-
-      <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-start space-x-3 text-blue-800">
-        <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-        <div className="text-sm">
-          <p className="font-semibold">Informacja o ewaluacji</p>
-          <p className="opacity-90">
-            Testy są przeprowadzane na zestawie 15 scenariuszy testowych (NER +
-            Search). Wyniki odświeżają się przy każdym wejściu do panelu.
-          </p>
+        <div className="pt-6 border-t border-gray-100 space-y-4">
+          <h3 className="text-sm font-semibold text-brand-text uppercase tracking-wider">
+            Interpretacja Akademicka
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600 leading-relaxed">
+            <div className="space-y-2">
+              <p className="font-medium text-brand-text">
+                Efektywność Rekomendacji:
+              </p>
+              <p>
+                Niska wartość czułości (Recall) wynika z architektury systemu
+                rekomendacyjnego, gdzie priorytetem jest jakość pierwszej strony
+                wyników (Precision@5), a nie odnalezienie wszystkich pasujących
+                perfum w 21-tysięcznej bazie danych.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-brand-text">
+                Klasyfikacja i Grupowanie:
+              </p>
+              <p>
+                {metrics?.classification.interpretation}{" "}
+                {metrics?.clustering.interpretation}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
