@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Loader2,
   BarChart as BarChartIcon,
+  Info,
 } from "lucide-react";
 import {
   BarChart,
@@ -154,9 +155,12 @@ export default function DevPanel() {
                   Silhouette Score
                 </p>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                {metrics?.clustering.interpretation}
-              </p>
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-lg flex items-start space-x-2">
+                <Info className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  <strong>Legenda:</strong> {metrics?.clustering.interpretation}
+                </p>
+              </div>
             </>
           )}
         </section>
@@ -175,17 +179,25 @@ export default function DevPanel() {
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <span className="text-2xl font-mono font-bold text-brand-text">
-                    {metrics?.classification.business_accuracy}%
+                  <span className="text-xl font-mono font-bold text-brand-text">
+                    {metrics?.classification.standard_accuracy}%
                   </span>
                   <p className="text-[10px] text-brand-muted uppercase tracking-wider">
-                    Business Accuracy
+                    Accuracy
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-2xl font-mono font-bold text-brand-text">
+                  <span className="text-xl font-mono font-bold text-brand-text">
+                    {metrics?.classification.business_accuracy}%
+                  </span>
+                  <p className="text-[10px] text-brand-muted uppercase tracking-wider">
+                    Bus. Accuracy
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xl font-mono font-bold text-brand-text">
                     {metrics?.classification.f1_score}
                   </span>
                   <p className="text-[10px] text-brand-muted uppercase tracking-wider">
@@ -193,9 +205,12 @@ export default function DevPanel() {
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                {metrics?.classification.interpretation}
-              </p>
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-lg flex items-start space-x-2">
+                <Info className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  <strong>Legenda:</strong> {metrics?.classification.interpretation}
+                </p>
+              </div>
             </>
           )}
         </section>
@@ -246,13 +261,15 @@ export default function DevPanel() {
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-brand-muted italic mt-2">
-                Metryka Precision@5: procent trafnych nut zapachowych w top 5
-                wynikach.
-              </p>
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-lg flex items-start space-x-2">
+                <Info className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  <strong>Legenda:</strong> Metryka Precision@5 oznacza procent trafnych nut zapachowych w top 5 wynikach.
+                </p>
+              </div>
             </div>
           )}
-        </section>
+        </section> 
       </div>
 
       {/* Wykres Porównawczy */}
@@ -319,34 +336,6 @@ export default function DevPanel() {
               />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-
-        <div className="pt-6 border-t border-gray-100 space-y-4">
-          <h3 className="text-sm font-semibold text-brand-text uppercase tracking-wider">
-            Interpretacja Akademicka
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600 leading-relaxed">
-            <div className="space-y-2">
-              <p className="font-medium text-brand-text">
-                Efektywność Rekomendacji:
-              </p>
-              <p>
-                Niska wartość czułości (Recall) wynika z architektury systemu
-                rekomendacyjnego, gdzie priorytetem jest jakość pierwszej strony
-                wyników (Precision@5), a nie odnalezienie wszystkich pasujących
-                perfum w 21-tysięcznej bazie danych.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="font-medium text-brand-text">
-                Klasyfikacja i Grupowanie:
-              </p>
-              <p>
-                {metrics?.classification.interpretation}{" "}
-                {metrics?.clustering.interpretation}
-              </p>
-            </div>
-          </div>
         </div>
       </section>
     </div>

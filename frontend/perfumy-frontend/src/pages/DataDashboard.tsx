@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { fetchClusters } from '../api';
 import { 
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend 
 } from 'recharts';
@@ -14,14 +15,10 @@ interface ClusterPoint {
   y: number;
 }
 
-const CLUSTER_COLORS: Record<string, string> = {
-  "Świeże-Cytrusowe": "#8A9A86", 
-  "Kwiatowo-Owocowe": "#DDBEA9", 
-  "Ciężkie-Wieczorowe": "#1A1A1A", 
-  "Mroczne-Drzewne": "#5C4D42", 
-  "Orientalno-Przyprawowe": "#B87333", 
-  "Nieznany Profil": "#9CA3AF" 
-};
+const BASE_PALETTE = [
+  "#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", 
+  "#8A9A86", "#DDBEA9", "#5C4D42", "#a8dadc", "#457b9d"
+];
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -31,7 +28,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         <p className="font-bold text-brand-text mb-1">{data.name}</p>
         <p className="text-xs text-brand-muted uppercase tracking-wider mb-3">{data.brand}</p>
         <span className="inline-block px-3 py-1 bg-gray-50 text-xs font-medium text-brand-text rounded-full border border-gray-200">
-          Galaktyka: {data.cluster}
+          Grupa zapachowa: {data.cluster}
         </span>
       </div>
     );
@@ -45,15 +42,13 @@ export default function DataDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchClusters = async () => {
+    const loadClusters = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/clusters');
-        if (response.data.status === 'success') {
-          setData(response.data.data);
-        } else {
-          setError(response.data.detail);
-        }
-      } catch (err) {
+        setIsLoading(true);
+        const response = await fetchClusters(500);
+        
+        setData(response.data || response);
+      } catch (err: any) {
         setError("Błąd połączenia z serwerem. Upewnij się, że FastAPI działa.");
         console.error(err);
       } finally {
@@ -61,7 +56,7 @@ export default function DataDashboard() {
       }
     };
 
-    fetchClusters();
+    loadClusters();
   }, []);
 
   const groupedData = data.reduce((acc, point) => {
@@ -69,6 +64,13 @@ export default function DataDashboard() {
     acc[point.cluster].push(point);
     return acc;
   }, {} as Record<string, ClusterPoint[]>);
+
+  const clusterNames = Object.keys(groupedData);
+  const dynamicColorMap: Record<string, string> = {};
+  
+  clusterNames.forEach((clusterName, index) => {
+    dynamicColorMap[clusterName] = BASE_PALETTE[index % BASE_PALETTE.length];
+  });
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -117,17 +119,17 @@ export default function DataDashboard() {
                 <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#e5e7eb' }} />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 
-                {Object.keys(groupedData).map((clusterName) => (
+                {clusterNames.map((clusterName) => (
                   <Scatter 
                     key={clusterName} 
                     name={clusterName} 
                     data={groupedData[clusterName]} 
-                    fill={CLUSTER_COLORS[clusterName] || CLUSTER_COLORS["Nieznany Profil"]}
+                    fill={dynamicColorMap[clusterName]}
                   >
                     {groupedData[clusterName].map((_, index) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={CLUSTER_COLORS[clusterName] || CLUSTER_COLORS["Nieznany Profil"]} 
+                        fill={dynamicColorMap[clusterName]} 
                       />
                     ))}
                   </Scatter>

@@ -54,7 +54,7 @@ export default function SearchPage() {
           Odkryj swój idealny zapach
         </h1>
         <p className="text-brand-muted mb-8 text-lg">
-          Opisz, czego szukasz, np. "chłodny, mglisty poranek w lesie"...
+          Opisz, czego szukasz, np. "chłodny poranek w lesie" lub "spacer po plaży"...
         </p>
 
         <form onSubmit={handleSearch} className="relative max-w-3xl mx-auto">
