@@ -4,6 +4,8 @@
 
 **Inteligentna Wyszukiwarka (GłÓWNY MODUŁ):** Wpisz w pasek wyszukiwania zapytanie naturalne (np. "zmysłowe perfumy na wieczorną randkę" lub "spacer nad morzem"). Zaimplementowany model SVM automatycznie rozpozna intencję płci (Męskie/Damskie/Unisex) i zastosuje odpowiednie filtry, a silnik hybrydowy (SBERT + TF-IDF) zwróci 10 najtrafniejszych propozycji.
 
+Link do filmu przedstawiającego działanie aplikacji: https://www.youtube.com/watch?v=Zmm_-ld_GUQ
+
 <img width="1138" height="808" alt="image" src="https://github.com/user-attachments/assets/9f0d1d3d-8479-46d0-af6b-b57994047fe4" />
 
 **Eksplorator Danych (Dashboard z klastrami perfum):** Przejdź do zakładki z wizualizacjami, aby zobaczyć rozkład zapachów w naszej bazie. Mapa 2D (wygenerowana dzięki redukcji PCA) prezentuje grupy zapachowe wyznaczone algorytmem K-Means na macierzy TF-IDF. Umożliwia to wizualną analizę podobieństw między poszczególnymi profilami zapachowymi.
